@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Transforms a refworks xml to xhtml with form to submit ref data xml
+ 
+ Copyright 2009 The Open University
+ j.platts@open.ac.uk
+ GNU Public License
+-->
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:php="http://php.net/xsl">
+	<xsl:output method="xml" doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd" omit-xml-declaration="yes" standalone="yes" indent="no" encoding="utf-8"></xsl:output>
+	<xsl:param name="count" select="'1'"/>
+	<xsl:param name="num" select="'1'"/>
+	<xsl:param name="num2" select="generate-id()"/>
+	<xsl:param name="sesskey" select="''"/>
+	<xsl:param name="postto" select="''"/>
+	<xsl:param name="exporthead" select="''"/>
+	<xsl:param name="downloadhead" select="''"/>
+	<xsl:param name="imageloc" select="''"/>
+	<xsl:param name="exportbutname" select="''"/>
+	<xsl:param name="coursename" select="''"/>
+	<xsl:param name="courseid" select="'1'"/>
+	<xsl:param name="seltitle" select="''"/>
+	<xsl:param name="ajaxenabled" select="true"/>
+	<xsl:param name="noajax" select="''"/>
+	<xsl:param name="noajax2" select="''"/>
+	
+	<xsl:template match="references"> 
+	<div class="reference_filter">
+		<xsl:apply-templates select=".//reference"/>
+	</div>
+	</xsl:template>
+	
+	<xsl:template match="reference">
+	<xsl:variable name="id" select="position()"></xsl:variable>
+	<div class="reference_filter_item">
+	<!--<form id="ref_filt_{$num}{$num2}{$count}{$id}" method="post" action="{$postto}">-->
+	<!--  need to get type (typeof="") and url about="" into this div atts-->
+		<xsl:call-template name="title"/>
+		<xsl:call-template name="authors"/>
+		<xsl:call-template name="journal"/>
+		<xsl:call-template name="publisher"/>
+		<xsl:choose>
+		<xsl:when test="$ajaxenabled=1">
+			<input type="hidden" name="info" id="info_{$num}{$num2}{$count}{$id}" value="{$sesskey}~~{$coursename}~~{$courseid}"></input>
+			<textarea name="xml" id="xml_{$num}{$num2}{$count}{$id}" style="display:none">
+			<!-- This node needs to be an escaped copy of reference for submitting  -->
+			<xsl:apply-templates select="." mode="escape"/>
+			</textarea>
+			<!-- Add in the menu of export options and submit button -->
+			<xsl:call-template name="export"/>
+			<xsl:call-template name="noscript"/>
+		</xsl:when>
+		<xsl:otherwise><xsl:call-template name="noscript"/></xsl:otherwise>
+		</xsl:choose>
+	<!--</form>-->
+	</div>
+	</xsl:template>
+	
+	<xsl:template match="node()" mode="escape">
+	&lt;<xsl:value-of select="name()"/>&gt;<xsl:apply-templates select="node()" mode="escape"/>&lt;/<xsl:value-of select="name()"/>&gt;
+	</xsl:template>
+
+    <xsl:template match="text()" mode="escape">
+        <xsl:value-of select="."/>
+    </xsl:template>
+	
+	<xsl:template match="node()" mode="escapeurl">
+		<xsl:if test="text()!=''">
+			&amp;<xsl:value-of select="name()"/>=<xsl:value-of select="php:functionString('urlencode',.)"/>
+		</xsl:if>
+	</xsl:template>
+	
+	<!-- Export menu template -->
+	<xsl:template name="export">
+		<xsl:if test="/menu">
+			<select name="refselect_{$num}{$num2}{$count}{position()}" id="refselect_{$num}{$num2}{$count}{position()}">
+				<option value="null" title="{$seltitle}"><xsl:value-of select="$seltitle"/></option>
+				<optgroup label="{$exporthead}">
+					<xsl:apply-templates select="/menu/export" mode="opt"/>
+				</optgroup>
+				<optgroup label="{$downloadhead}">
+					<xsl:apply-templates select="/menu/download" mode="opt"/>
+				</optgroup>
+			</select>
+			<input type="button" id="submit{$num}{$num2}{$count}{position()}" name="submit{$num}{$num2}{$count}{position()}" title="{$exportbutname}" value="{$exportbutname}" onclick="ref_filter_onMenuClick(this)"> </input>
+		</xsl:if>
+	</xsl:template>
+	
+	<xsl:template match="opt" mode="opt">
+		<option value="{@name}:{@ajax}" title="{@desc}"><xsl:value-of select="@title"/></option>
+	</xsl:template>
+	
+	<!-- template for users without ajax or js off -->
+	<xsl:template name="noscript">
+	<script type="text/javascript" language="javascript"></script>
+	<noscript><br/><xsl:value-of select="$noajax" disable-output-escaping="yes" /><xsl:apply-templates select=".//." mode="escapeurl"/><xsl:value-of select="$noajax2" disable-output-escaping="yes" /></noscript>
+	</xsl:template>
+	
+	<!-- type -->
+	<xsl:template name="type">
+		<!-- look at value -->
+	</xsl:template>
+	
+	<!-- title -->
+	<xsl:template name="title">
+		<h2>
+		<!-- make title url? (use link att, u5, lk, ul, ed) -->
+		<xsl:choose>
+			<xsl:when test="@link">
+				<xsl:call-template name="title_link">
+					<xsl:with-param name="uri" select="@link"></xsl:with-param>
+					<xsl:with-param name="title" select="t1"></xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:when test="contains(u5, '://')">
+				<xsl:call-template name="title_link">
+					<xsl:with-param name="uri" select="u5"></xsl:with-param>
+					<xsl:with-param name="title" select="t1"></xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:when test="contains(lk, '://')">
+				<xsl:call-template name="title_link">
+					<xsl:with-param name="uri" select="lk"></xsl:with-param>
+					<xsl:with-param name="title" select="t1"></xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:when test="contains(ul, '://')">
+				<xsl:call-template name="title_link">
+					<xsl:with-param name="uri" select="ul"></xsl:with-param>
+					<xsl:with-param name="title" select="t1"></xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:when test="contains(ed, '://')">
+				<xsl:call-template name="title_link">
+					<xsl:with-param name="uri" select="ed"></xsl:with-param>
+					<xsl:with-param name="title" select="t1"></xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:apply-templates select="t1"/>
+			</xsl:otherwise>
+		</xsl:choose>
+		<xsl:text>&#32;</xsl:text>
+		</h2>
+	</xsl:template>
+	<xsl:template name="title_link">
+		<xsl:param name="title">Title not retrieved</xsl:param>
+		<xsl:param name="uri" />
+		<xsl:variable name="id" select="position()"></xsl:variable>
+		<a href="{$uri}"><xsl:value-of select="$title"/></a>
+	</xsl:template>
+	
+	<!-- author(s) -->
+	<xsl:template name="authors">
+		<p>
+			<xsl:apply-templates select="a1"/>
+		</p>
+	</xsl:template>
+	<xsl:template match="a1">
+				<span>
+					<xsl:value-of select="." />
+				</span>;
+	</xsl:template>
+	
+	<!-- journal/item related info -->
+	<xsl:template name="journal">
+		<xsl:if test=".//jf or .//jo">
+			<p>
+				<span>
+					<xsl:if test=".//jf">
+					<span>
+						<xsl:apply-templates select="jf" />
+					</span>
+					</xsl:if>
+					<xsl:if test=".//jo">
+						<xsl:if test=".//jf">
+							<xsl:text>&#32;(</xsl:text>
+						</xsl:if>
+						<span>
+							<xsl:apply-templates select="jo" />
+						</span>
+						<xsl:if test=".//jf">
+							<xsl:text>)</xsl:text>
+						</xsl:if>
+					</xsl:if>
+				</span>
+			</p>
+		</xsl:if>
+	</xsl:template>
+	
+	<!-- publishing info -->
+	<xsl:template name="publisher">
+		<!-- publisher -->
+		<xsl:if test=".//pb or .//pp">
+			<div>
+					<xsl:if test=".//pb">
+						<p><xsl:apply-templates select="pb" /></p>
+					</xsl:if>
+					<xsl:if test=".//pp">
+						<p><xsl:apply-templates select="pp" /></p>
+					</xsl:if>
+			</div>
+		</xsl:if>
+		<!-- year -->
+		<xsl:if test=".//yr">
+			<p>
+				<xsl:apply-templates select="yr" />
+			</p>
+		</xsl:if>
+	</xsl:template>
+</xsl:stylesheet>
